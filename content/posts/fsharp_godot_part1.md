@@ -1,7 +1,7 @@
 ---
 title: "F# and Godot part 1"
 date: 2020-12-24T01:23:40+01:00
-draft: true
+draft: false
 ---
 
 In this part I will touch on why I chose F# instead of the many other languages that I know and could've used with godot. In addition it also goes over on how to set it up.
