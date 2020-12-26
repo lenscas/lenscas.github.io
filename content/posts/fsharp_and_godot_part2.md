@@ -4,7 +4,8 @@ date: 2020-12-24T01:23:41+01:00
 draft: true
 ---
 
-In part 1 I wend over on why I chose F# and how to set it up with godot. In part 2 I will go over how you do some basic godot things in F# like emitting custom signals.
+In part 1 I went over on why I chose F# and how to set it up with godot. In part 2 I will go over how you do some basic godot things in F# like emitting custom signals.
+Part 3 will go deeper in F# and use it to make a library from Godot easier to use.
 
 ## Setting a value through this._Ready
 

@@ -4,40 +4,28 @@ date: 2020-12-25T01:37:41+01:00
 draft: true
 ---
 
-# Generics
-Generics are written a bit differently in F# compared to C#.
+Part 1 has gone over the why I chose F#, and part 2 showed how to do some basic things. This part will actually dive deeper into F# by writing an abstraction for a part of Godot that is a pain to use no matter what language you use.
 
-This C#
-```cs
-public T someFunction<T>(T param) 
-{
-    //function body
-}
-```
-becomes
-```fs
-let someFunction<'a> (param:'a) :'a = 
-    //function body
-```
-There is not much to say about it. The rest of the post will continue to use C#'s way to define generics in the text as that is what most people are familiar with, but will of course use F#'s way in F#'s codeblocks.
 
-# Using F# features to make Godots HttpClient nice to use
+## The library
 
-As you may or may not know. The game I am making heavily relies on HTTP requests. This means that I need a good and easy way to make http requests. There are at least 2 clients available without loading extra libraries.
+The library I have chosen to make easier is Godots HttpClient. Godot offers 2 ways to make httpRequests.
 
-You have access to the HTTPClient provided by .NET and by the one provided by Godot. Now, I would almost always advice people to use the .NET one if you can. It is just nicer to use. Sadly, this requires async code, which at time of writing doesn't work in wasm. So, that Godot's client. 
+* [HttpRequest](https://docs.godotengine.org/en/stable/tutorials/networking/http_request_class.html) which uses a Node
 
-Godot has 2 ways to make requests. There is [HttpRequest](https://docs.godotengine.org/en/stable/tutorials/networking/http_request_class.html) and [HttpClient](https://docs.godotengine.org/en/stable/tutorials/networking/http_client_class.html#doc-http-client-class). The big difference is that HttpRequest is a Node and works with signals, while HttpClient is a more low level api and thus does not need access to the scene tree.
+* [HttpClient](https://docs.godotengine.org/en/stable/tutorials/networking/http_client_class.html#doc-http-client-class) which doesn't need access to the Scene tree but is more annoying to use as a result.
 
-If you can, use HttpRequest and not HttpClient. Its many times easier. I decided to go with the HttpClient though as it being stuck to the scene tree would make everything more annoying in the long run. Because of this and the fact that you already know enough to work with the HttpRequest class this part will on the HttpClient.
+.NET also offers its own http Client. I would recommend to use that if you can but as it requires async code, which as time of writing doesn't work in WASM contexts, using it may simply not be an option.
 
-## SO MUCH POLLING!
+Similarly, while Godot's `HttpRequest` is easier to use, the fact that it always needs access to the scene tree may make it a poor option regardless.
+
+## SO, MUCH, POLLING!
 
 If you looked at the tutorial for the HttpClient you may see that A LOT of polling is used and the code is not exactly nice to look at either.
 
-Well, luckily both F# and C# have ways to make it nicer, though F# can go one step further.
+Well, luckily both F# and C# have ways to make it nicer, though F# can go one step further and its also nicer to write the abstraction itself.
 
-In short: we are going to make a `Poll<T>` class that allows us to easily poll, make functions that helps us compose the Poll's so it is easier to work with and last we are going to make our own `Poll` block, allowing us to work with the Poll class almost as if it was just async code.
+The plan: we are going to make a `Poll<T>` class that allows us to easily poll, make functions that helps us compose the Poll's so it is easier to work with and last but not least we are going to make our own `Poll` block, allowing us to work with the Poll class almost as if it was just async code.
 
 ## Step 1
 The first step is to make the Poll class. It needs a way tell you wether something got returned and a way to poll the value. I also like it to be able to peek, so we can check the state of a Poll without having to poll it.
@@ -53,7 +41,11 @@ type PollResult<'a> =
 Ok, if you have never seen F# this type will probably make no sense to you. A very short explanation is that this is a `discriminated union`. It denotes a type that can have multiple variants, or states. Kind of like C#'s enums but MUCH more powerful
 
 For now, lets break it down:
-First: `type PollResult<'a> =` it just means we have a generic type called PollResult.
+First: 
+```fs
+type PollResult<'a> =
+```
+the `'a` is just how generics types are written in F#. In C# `<T>` is used
 
 Next, the body of the type:
 ```fs
