@@ -1,10 +1,13 @@
 ---
 title: "F# and Godot part 2"
-date: 2020-12-24T01:23:41+01:00
-draft: true
+date: 2020-12-29T16:53:41+01:00
+draft: false
 ---
 
-In part 1 I went over on why I chose F# and how to set it up with godot. In part 2 I will go over how you do some basic godot things in F# like emitting custom signals.
+part 1 I went over on why I chose F# and how to set it up with godot.
+
+part 2 I will go over how you do some basic godot things in F# like emitting custom signals.
+
 Part 3 will go deeper in F# and use it to make a library from Godot easier to use.
 
 ## Setting a value through this._Ready
@@ -39,9 +42,20 @@ As for how this works, well easy: `lazy()` takes a single expression and runs it
 
 So, in other words instead of setting the value of `userNameNode` in `this._Ready` we don't yet give it a useable value and the first time we need a value we search for the node and remember it for next time. Except that we do not have to check ourself, everything is already handled by `userNameNode.Value`.
 
-As for why it is better? Simple: We can NOT forget to give a value to our fields in the `constructor` nor in `this._Ready`. The less there is to forget, the less bugs there are that you can make. The less bugs you can make, the better.
+As for why it is better? Simple: Its impossible to forget to give a value to our fields in the `constructor` nor in `this._Ready`. The less there is to forget, the less bugs there are that you can make. The less bugs you can make, the better.
 
-There is of course a downside to doing this. Especially if the code in the Lazy is heavy having it get executed in `this._Process` may cause a stutter despite it only running once. If this happens, then simply try to access the value in `this._Ready` is an easy (though not elegant) fix. This means that it will execute the code inside the Lazy and remembers the value for later.
+If you really do need a field that starts without a value, use an option instead.
+```fs
+type LoginScreenFs() as this =
+    inherit Control()
+
+    let  mutable userNameNode : Option<LineEdit>= None
+
+    override this._Ready () =
+        userNameNode <- Some(this.GetNode<LineEdit>(new NodePath("UserName")))
+```
+
+Keep in mind that when using this its more code as F# forces you to handle the None (Null) case.
 
 ## Async anything
 
@@ -58,7 +72,7 @@ public async Task<int> AnAsyncFunction(int a, int b)
 
 the same function in F# 
 ```fs
-let AnAsyncFunction a b = 
+let AnAsyncFunction (a:int) (b:int) : Async<int> = 
     async {
         let! newVal = DoStuffWithAnInt a
         return a + b
@@ -67,18 +81,24 @@ let AnAsyncFunction a b =
 ```
 As you can see, everything is different. Which is kind of the theme when switching to F# from C#. Lets break it down:
 
-The first thing you notice is that F# does not have the concept of an `async function`, at least not in the same was as C# does. Instead it makes use of an `async block`. This is technically just a `Computation Expressions` but that is for WAY later. All you have to know is that it tells F# that the code in the block will be dealing with the `Async` type.
+The first thing you notice is that F# does not have the concept of an `async function`, at least not in the same was as C# does. Instead it makes use of an `async block`. 
 
 Next, you see that F# doesn't use `await` and if you payed good attention you may also see the `!` after the `let` in the block look at `let! newVal = DoStuffWithAnInt a`.
 
-This `!` is very important and tells F# that you don't want the literal value of the function (in this case `Async<int>`) but only care about the actual result. In other words, it works the same as `await` in C#. It actually is a bit more generic than this as the `async` block is not a language construct and you can make your own variants of these blocks, not even limited to Async.
+This `!` is very important and tells F# that you don't want the literal value of the function (in this case `Async<int>`) but only care about the inner value (In this case an `int`). In other words, it works the same as `await` in C#.
 
-Another difference: F# uses its own type called `Async<T>` instead of using `Task<T>`. You can still use `Tasks` in F# though. Just need to convert them using `Async.AwaitTask` like so `let! a = parameter1 |> someTaskFunction |> Async.AwaitTask`. There are also libraries like Ply that give you a `task` block. This allows you to write the same code as if it was an `async` block, but works with `Task` instead.
+There is a bit more going on behind the scenes, as F# allows you to write similar blocks for other types. Search for `Computation Expressions` if you want to know a bit more on how it works. In part 3 we are going to use one to make some syntax just a bit nicer. For now, all you need to know is that `let!` does what you want `await` to do in C#.
 
-A final difference you have to keep in mind: In F# you have to start an async process yourself, use `Async.Start` or one of the many other functions to start them. The all behave a bit differently but are documented so it makes little sense to go over all of them.
+Another difference: F# uses its own type called `Async<T>` instead of using `Task<T>`. You can still use `Tasks` in F# though. Just need to convert them using `Async.AwaitTask` like so `
+```fs
+let! a = parameter1 |> someTaskFunction |> Async.AwaitTask
+```
+There are also libraries like Ply that give you a `task` block. This allows you to write the same code as if it was an `async` block, but works with `Task` instead.
+
+A final difference you have to keep in mind: In F# you have to start an async process yourself, use `Async.Start` or one of the many other functions to start them. They all behave a bit differently but are all pretty well documented.
 
 ## The elephant in the room: Awaiting on signals.
-As already said earlier, using `ToSignal()`. In C# you can just use `await` and call it a day. In F# this is sadly enough not the case. This is because of the differences in how F# and C# do async amplified by godot doing it just a bit different again than the standard C# way.
+As already stated earlier, using `ToSignal()`. In C# you can just use `await` and call it a day. In F# this is sadly enough not the case. This is because of the differences in how F# and C# do async amplified by godot doing it just a bit different again than the standard C# way.
 
 Godot does not use a `Task` for `ToSignal` so, using `Async.AwaitTask` does not help us. If you want to use `ToSignal` you will have to use `ply` and its task block. Additionally, for some weird reason the classes Godot uses are not compatible with `ply` despite implementing everything. So you will also need to wrap the output of `ToSignal` into your own class to make it compatible.
 
@@ -112,9 +132,9 @@ You could write an extension method to automatically wrap this.ToSignal into a S
 
 Not much has changed with this compared to C#. There are 2 things you need to think about though.
 
-The first is that Godot wants to `marshal` the values passed through Signals. This severely limits what you can send through them. Any F# specific type of type like struct records will NOT work. F# specific stuff like Option/Result will as far as I know also NOT work. Use classes that extend `Godot.Object` if you want to send them over Signals.
+The first is that Godot wants to `marshal` the values passed through Signals. This severely limits what you can send through them. Any F# specific type of type like struct records will NOT work. F# specific stuff like Option/Result will as far as I know also NOT work. Use classes that extend `Godot.Object` if you want to send them over Signals, just like you would with C# code.
 
-Also, there is no way to define a sub type in a class in F#. As a result, I have yet to find a way to define custom signals in F#. HOWEVER it has an easy work around: Just define them in the C# file you already need anyway. As the F# code is loaded as a library you even have access to any F# type you want to send over. It does mean you can't use `nameof` in F# to get the name of the signal when emitting it though.
+Also, there is no way to define a sub type in a class in F#. As a result, I have yet to find a way to define custom signals in F#. HOWEVER it has an easy work around: Just define them in the C# file you already need anyway. As the F# code is loaded as a library you have access to any F# type you want to send over. It does mean you can't use `nameof` in F# to get the name of the signal when emitting it though.
 
 Other than those 2 things, it works exactly the same. If however these restrictions are a no go however, then both F# and C# have `events` which can fill the same role. You just have to remember to manually unsubscribe from these `events` whenever a node gets removed.
 
